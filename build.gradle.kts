@@ -1,10 +1,10 @@
 plugins {
-    kotlin("jvm") version "2.1.0"
+    kotlin("jvm") version "2.1.21"
     application
 }
 repositories { mavenCentral() }
 dependencies {
-    val ktor = "3.2.3"
+    val ktor = "3.3.2"
     implementation("io.ktor:ktor-server-core-jvm:$ktor")
     implementation("io.ktor:ktor-server-netty-jvm:$ktor")
     implementation("io.ktor:ktor-server-content-negotiation-jvm:$ktor")
@@ -20,9 +20,9 @@ dependencies {
     implementation("org.jetbrains.exposed:exposed-dao:0.54.0")
     implementation("org.jetbrains.exposed:exposed-jdbc:0.54.0")
     implementation("com.zaxxer:HikariCP:5.1.0")
-    implementation("org.xerial:sqlite-jdbc:3.46.0.0")
+    implementation("org.xerial:sqlite-jdbc:3.49.1.0")
 
-    implementation("org.bouncycastle:bcprov-jdk18on:1.78.1")
+    implementation("org.bouncycastle:bcprov-jdk18on:1.80")
 }
 application { mainClass.set("io.ktor.server.netty.EngineMain") }
 kotlin { jvmToolchain(21) }

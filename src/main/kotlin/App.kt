@@ -92,9 +92,15 @@ fun Application.module() {
     intercept(ApplicationCallPipeline.Setup) {
         call.response.headers.append("Referrer-Policy", "no-referrer")
         call.response.headers.append("X-Content-Type-Options", "nosniff")
+        call.response.headers.append("X-Frame-Options", "DENY")
+        call.response.headers.append("X-XSS-Protection", "1; mode=block")
+        call.response.headers.append("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
         call.response.headers.append("Content-Security-Policy",
-            "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none';")
-        call.response.headers.append("Permissions-Policy", "accelerometer=(), geolocation=(), camera=(), microphone=()")
+            "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'; form-action 'self';")
+        call.response.headers.append("Permissions-Policy", "accelerometer=(), geolocation=(), camera=(), microphone=(), payment=(), usb=()")
+        call.response.headers.append("Cross-Origin-Embedder-Policy", "require-corp")
+        call.response.headers.append("Cross-Origin-Opener-Policy", "same-origin")
+        call.response.headers.append("Cross-Origin-Resource-Policy", "same-origin")
     }
 
     val hikari = HikariDataSource(HikariConfig().apply {
