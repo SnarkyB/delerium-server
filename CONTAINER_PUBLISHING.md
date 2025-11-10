@@ -2,6 +2,17 @@
 
 This guide explains how to publish the delerium-paste server as a reusable container image to Docker Hub or GitHub Container Registry (GHCR).
 
+## Quick Start
+
+**For GitHub Container Registry (GHCR) - Easiest Option:**
+- ✅ **No setup required!** Just push to your GitHub repository
+- Images are automatically published to `ghcr.io/<your-username>/delerium-paste-server`
+- Works immediately - no secrets to configure
+
+**For Docker Hub:**
+- Requires setting up secrets in GitHub (see below)
+- Images published to `docker.io/<your-username>/delerium-paste-server`
+
 ## Overview
 
 The project includes:
@@ -11,10 +22,9 @@ The project includes:
 
 ## Prerequisites
 
-1. **Docker** installed and running
-2. **Docker Hub account** (for Docker Hub publishing) OR
-3. **GitHub account** (for GHCR publishing)
-4. **GitHub repository** (for automated publishing via Actions)
+1. **Docker** installed and running (for local builds)
+2. **GitHub repository** (for automated publishing via Actions)
+3. **Docker Hub account** (optional, only if publishing to Docker Hub)
 
 ## Publishing to Docker Hub
 
@@ -40,47 +50,94 @@ The project includes:
 
 1. **Set up Docker Hub secrets in GitHub:**
    - Go to your repository → Settings → Secrets and variables → Actions
+   - Click "New repository secret"
    - Add the following secrets:
-     - `DOCKERHUB_USERNAME`: Your Docker Hub username
-     - `DOCKERHUB_TOKEN`: Your Docker Hub access token (create at https://hub.docker.com/settings/security)
+     - **Name:** `DOCKERHUB_USERNAME` → **Value:** Your Docker Hub username
+     - **Name:** `DOCKERHUB_TOKEN` → **Value:** Your Docker Hub access token
+       - Create token at: https://hub.docker.com/settings/security
+       - Click "New Access Token"
+       - Give it a description (e.g., "GitHub Actions")
+       - Copy the token immediately (you won't see it again!)
 
 2. **Trigger the workflow:**
-   - Push to `main` branch → builds and pushes `latest` tag
-   - Create a git tag (e.g., `v1.0.0`) → builds and pushes versioned tags:
+   - **Push to `main` branch:**
+     ```bash
+     git push origin main
+     ```
+     Builds and pushes: `your-username/delerium-paste-server:latest`
+   
+   - **Create a version tag:**
      ```bash
      git tag v1.0.0
      git push origin v1.0.0
      ```
+     Builds and pushes multiple tags:
+     - `your-username/delerium-paste-server:1.0.0`
+     - `your-username/delerium-paste-server:1.0`
+     - `your-username/delerium-paste-server:1`
+     - `your-username/delerium-paste-server:latest`
 
-3. **Image tags created:**
-   - `your-username/delerium-paste-server:latest` (on main branch)
-   - `your-username/delerium-paste-server:1.0.0` (on version tag)
-   - `your-username/delerium-paste-server:1.0` (major.minor)
-   - `your-username/delerium-paste-server:1` (major)
+3. **Verify the workflow:**
+   - Go to your repository → Actions tab
+   - You should see "Build and Push Docker Image" workflow running
+   - Once complete, check Docker Hub: https://hub.docker.com/r/your-username/delerium-paste-server
 
 ## Publishing to GitHub Container Registry (GHCR)
 
-### Option 1: Manual Publishing
+### Option 1: Automated Publishing via GitHub Actions (Recommended)
 
-1. **Build the image:**
+**GHCR publishing works automatically with zero configuration!**
+
+1. **No setup required** - The workflow uses GitHub's built-in `GITHUB_TOKEN` which has permissions to push to GHCR
+2. **Push to your repository:**
    ```bash
-   docker build -t ghcr.io/your-username/delerium-paste-server:1.0.0 .
+   git push origin main
+   ```
+   This automatically builds and pushes:
+   - `ghcr.io/<your-username>/delerium-paste-server:latest`
+
+3. **Create a version tag:**
+   ```bash
+   git tag v1.0.0
+   git push origin v1.0.0
+   ```
+   This automatically creates multiple tags:
+   - `ghcr.io/<your-username>/delerium-paste-server:1.0.0`
+   - `ghcr.io/<your-username>/delerium-paste-server:1.0`
+   - `ghcr.io/<your-username>/delerium-paste-server:1`
+   - `ghcr.io/<your-username>/delerium-paste-server:latest`
+
+4. **View your images:**
+   - Go to your GitHub repository → Packages (right sidebar)
+   - Or visit: `https://github.com/<your-username>?tab=packages`
+
+**Note:** By default, packages are private. To make them public:
+- Go to the package page → Package settings → Change visibility → Make public
+
+### Option 2: Manual Publishing
+
+1. **Create a GitHub Personal Access Token:**
+   - Go to https://github.com/settings/tokens
+   - Click "Generate new token (classic)"
+   - Select scope: `write:packages`
+   - Generate and copy the token
+
+2. **Build the image using the script:**
+   ```bash
+   ./docker-build.sh 1.0.0 ghcr your-github-username
    ```
 
-2. **Login to GHCR:**
+3. **Login to GHCR:**
    ```bash
-   echo $GITHUB_TOKEN | docker login ghcr.io -u your-username --password-stdin
+   echo $GITHUB_TOKEN | docker login ghcr.io -u your-github-username --password-stdin
    ```
-   (Create a Personal Access Token with `write:packages` permission)
+   (Replace `$GITHUB_TOKEN` with your actual token, or set it as an environment variable)
 
-3. **Push the image:**
+4. **Push the image:**
    ```bash
-   docker push ghcr.io/your-username/delerium-paste-server:1.0.0
+   docker push ghcr.io/your-github-username/delerium-paste-server:1.0.0
+   docker push ghcr.io/your-github-username/delerium-paste-server:latest
    ```
-
-### Option 2: Automated Publishing via GitHub Actions
-
-The workflow can be configured to publish to GHCR instead of (or in addition to) Docker Hub. See the workflow file for configuration options.
 
 ## Using the Published Image
 
@@ -172,12 +229,73 @@ The multi-stage build produces a minimal runtime image containing only:
 ## CI/CD Workflow Details
 
 The GitHub Actions workflow (`.github/workflows/docker-publish.yml`) automatically:
-- Builds images on pushes to `main` and version tags
-- Creates multiple tags for semantic versioning
-- Uses build cache for faster builds
-- Only pushes on non-PR events (builds only on PRs)
+- **Builds images** on pushes to `main` and version tags (format: `v*`)
+- **Creates multiple tags** for semantic versioning (e.g., `1.0.0`, `1.0`, `1`, `latest`)
+- **Uses build cache** for faster builds (GitHub Actions cache)
+- **Publishes to both registries** (if Docker Hub secrets are configured):
+  - GHCR: Always enabled (uses `GITHUB_TOKEN`)
+  - Docker Hub: Only if `DOCKERHUB_USERNAME` secret is set
+- **Builds only** on pull requests (doesn't push)
+
+### Workflow Triggers
+
+- **Push to `main` branch:** Builds and pushes `latest` tag
+- **Push version tag (`v*`):** Builds and pushes versioned tags
+- **Pull requests:** Builds only (for testing), doesn't push
+
+### Registry Behavior
+
+- **GHCR:** Always publishes (no secrets needed)
+- **Docker Hub:** Only publishes if `DOCKERHUB_USERNAME` secret exists
+
+### Customizing the Workflow
 
 To modify the workflow:
 1. Edit `.github/workflows/docker-publish.yml`
 2. Adjust triggers, registries, or tags as needed
 3. Update secrets if switching registries
+4. To disable a registry, comment out or remove the relevant steps
+
+## Quick Reference
+
+### Automated Publishing (Recommended)
+
+**GHCR (Zero Setup):**
+```bash
+git push origin main                    # Pushes latest tag
+git tag v1.0.0 && git push origin v1.0.0  # Pushes versioned tags
+```
+
+**Docker Hub (Requires Secrets):**
+1. Add `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` secrets in GitHub
+2. Same git commands as above
+
+### Manual Publishing
+
+**GHCR:**
+```bash
+./docker-build.sh 1.0.0 ghcr your-github-username
+echo $GITHUB_TOKEN | docker login ghcr.io -u your-github-username --password-stdin
+docker push ghcr.io/your-github-username/delerium-paste-server:1.0.0
+```
+
+**Docker Hub:**
+```bash
+./docker-build.sh 1.0.0 dockerhub your-dockerhub-username
+docker login
+docker push your-dockerhub-username/delerium-paste-server:1.0.0
+```
+
+### Pull and Run Published Images
+
+**From GHCR:**
+```bash
+docker pull ghcr.io/your-username/delerium-paste-server:latest
+docker run -d -p 8080:8080 -v ./data:/data -e DELETION_TOKEN_PEPPER=your-secret ghcr.io/your-username/delerium-paste-server:latest
+```
+
+**From Docker Hub:**
+```bash
+docker pull your-username/delerium-paste-server:latest
+docker run -d -p 8080:8080 -v ./data:/data -e DELETION_TOKEN_PEPPER=your-secret your-username/delerium-paste-server:latest
+```
