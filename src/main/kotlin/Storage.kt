@@ -16,6 +16,7 @@ import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.ResultRow
 import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.lessEq
 import org.jetbrains.exposed.sql.Table
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.deleteWhere
@@ -142,6 +143,16 @@ class PasteRepo(private val db: Database, private val pepper: String) {
      */
     fun delete(id: String): Boolean = transaction(db) {
         Pastes.deleteWhere { Pastes.id eq id } > 0
+    }
+
+    /**
+     * Delete all expired pastes from the database
+     * 
+     * @return Number of pastes deleted
+     */
+    fun deleteExpired(): Int = transaction(db) {
+        val now = Instant.now().epochSecond
+        Pastes.deleteWhere { Pastes.expireTs lessEq now }
     }
 
     /**

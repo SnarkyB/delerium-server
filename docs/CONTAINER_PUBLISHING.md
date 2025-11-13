@@ -13,40 +13,44 @@ This guide explains how to publish the delerium-paste-server as a reusable conta
 - Requires setting up secrets in GitHub (see below)
 - Images published to `docker.io/<your-username>/delerium-paste-server`
 
-## Overview
-
-The project includes:
-- **Dockerfile**: Multi-stage build for optimized image size
-- **docker-build.sh**: Manual build script for local testing
-- **GitHub Actions workflow**: Automated CI/CD for publishing images
-
 ## Prerequisites
 
 1. **Docker** installed and running (for local builds)
 2. **GitHub repository** (for automated publishing via Actions)
 3. **Docker Hub account** (optional, only if publishing to Docker Hub)
 
-## Publishing to Docker Hub
+## Automated Publishing (Recommended)
 
-### Option 1: Manual Publishing
+### GitHub Container Registry (GHCR)
 
-1. **Build the image locally:**
+**Zero configuration required!**
+
+1. **Push to your repository:**
    ```bash
-   ./docker-build.sh 1.0.0 your-dockerhub-username
+   git push origin main
    ```
+   This automatically builds and pushes:
+   - `ghcr.io/<your-username>/delerium-paste-server:latest`
 
-2. **Login to Docker Hub:**
+2. **Create a version tag:**
    ```bash
-   docker login
+   git tag v1.0.0
+   git push origin v1.0.0
    ```
+   This automatically creates multiple tags:
+   - `ghcr.io/<your-username>/delerium-paste-server:1.0.0`
+   - `ghcr.io/<your-username>/delerium-paste-server:1.0`
+   - `ghcr.io/<your-username>/delerium-paste-server:1`
+   - `ghcr.io/<your-username>/delerium-paste-server:latest`
 
-3. **Push the image:**
-   ```bash
-   docker push your-dockerhub-username/delerium-paste-server:1.0.0
-   docker push your-dockerhub-username/delerium-paste-server:latest
-   ```
+3. **View your images:**
+   - Go to your GitHub repository → Packages (right sidebar)
+   - Or visit: `https://github.com/<your-username>?tab=packages`
 
-### Option 2: Automated Publishing via GitHub Actions
+**Note:** By default, packages are private. To make them public:
+- Go to the package page → Package settings → Change visibility → Make public
+
+### Docker Hub
 
 1. **Set up Docker Hub secrets in GitHub:**
    - Go to your repository → Settings → Secrets and variables → Actions
@@ -82,169 +86,54 @@ The project includes:
    - You should see "Build and Push Docker Image" workflow running
    - Once complete, check Docker Hub: https://hub.docker.com/r/your-username/delerium-paste-server
 
-## Publishing to GitHub Container Registry (GHCR)
+## Manual Publishing
 
-### Option 1: Automated Publishing via GitHub Actions (Recommended)
+### Using the Build Script
 
-**GHCR publishing works automatically with zero configuration!**
+The project includes `docker-build.sh` for easy local builds:
 
-1. **No setup required** - The workflow uses GitHub's built-in `GITHUB_TOKEN` which has permissions to push to GHCR
-2. **Push to your repository:**
-   ```bash
-   git push origin main
-   ```
-   This automatically builds and pushes:
-   - `ghcr.io/<your-username>/delerium-paste-server:latest`
-
-3. **Create a version tag:**
-   ```bash
-   git tag v1.0.0
-   git push origin v1.0.0
-   ```
-   This automatically creates multiple tags:
-   - `ghcr.io/<your-username>/delerium-paste-server:1.0.0`
-   - `ghcr.io/<your-username>/delerium-paste-server:1.0`
-   - `ghcr.io/<your-username>/delerium-paste-server:1`
-   - `ghcr.io/<your-username>/delerium-paste-server:latest`
-
-4. **View your images:**
-   - Go to your GitHub repository → Packages (right sidebar)
-   - Or visit: `https://github.com/<your-username>?tab=packages`
-
-**Note:** By default, packages are private. To make them public:
-- Go to the package page → Package settings → Change visibility → Make public
-
-### Option 2: Manual Publishing
-
-1. **Create a GitHub Personal Access Token:**
-   - Go to https://github.com/settings/tokens
-   - Click "Generate new token (classic)"
-   - Select scope: `write:packages`
-   - Generate and copy the token
-
-2. **Build the image using the script:**
-   ```bash
-   ./docker-build.sh 1.0.0 ghcr your-github-username
-   ```
-
-3. **Login to GHCR:**
-   ```bash
-   echo $GITHUB_TOKEN | docker login ghcr.io -u your-github-username --password-stdin
-   ```
-   (Replace `$GITHUB_TOKEN` with your actual token, or set it as an environment variable)
-
-4. **Push the image:**
-   ```bash
-   docker push ghcr.io/your-github-username/delerium-paste-server:1.0.0
-   docker push ghcr.io/your-github-username/delerium-paste-server:latest
-   ```
-
-## Using the Published Image
-
-### Basic Usage
-
+**For Docker Hub:**
 ```bash
-# With auto-generated pepper (works for development)
-docker run -d \
-  -p 8080:8080 \
-  -v /path/to/data:/data \
-  your-username/delerium-paste-server:latest
-
-# With explicit pepper (recommended for production)
-docker run -d \
-  -p 8080:8080 \
-  -v /path/to/data:/data \
-  -e DELETION_TOKEN_PEPPER=your-secret-pepper \
-  your-username/delerium-paste-server:latest
+./docker-build.sh 1.0.0 dockerhub your-dockerhub-username
+docker login
+docker push your-dockerhub-username/delerium-paste-server:1.0.0
+docker push your-dockerhub-username/delerium-paste-server:latest
 ```
 
-### Environment Variables
-
-- `DELETION_TOKEN_PEPPER` (optional, but recommended for production): Secret pepper for hashing deletion tokens
-  - **Auto-generation**: If not set, the application automatically generates a cryptographically secure random pepper (32 bytes = 64 hex characters)
-  - **Production recommendation**: Set explicitly for consistency across container restarts
-    - If the pepper changes between restarts, deletion tokens created before the restart will no longer work
-    - Generate a secure random value: `openssl rand -hex 32`
-  - **Development**: Auto-generation works fine for development/testing
-
-### Volumes
-
-- `/data`: Directory where the SQLite database will be stored
-  - The database file will be created at `/data/pastes.db`
-
-### Ports
-
-- `8080`: HTTP server port (configurable via `application.conf`)
-
-### Example with docker-compose
-
-```yaml
-version: '3.8'
-
-services:
-  delerium-paste:
-    image: your-username/delerium-paste-server:latest
-    ports:
-      - "8080:8080"
-    volumes:
-      - ./data:/data
-    environment:
-      - DELETION_TOKEN_PEPPER=your-secret-pepper-here
-    restart: unless-stopped
+**For GHCR:**
+```bash
+./docker-build.sh 1.0.0 ghcr your-github-username
+echo $GITHUB_TOKEN | docker login ghcr.io -u your-github-username --password-stdin
+docker push ghcr.io/your-github-username/delerium-paste-server:1.0.0
+docker push ghcr.io/your-github-username/delerium-paste-server:latest
 ```
 
-## Image Details
+**Note:** For GHCR, create a GitHub Personal Access Token with `write:packages` permission at https://github.com/settings/tokens
 
-### Base Images
-- **Builder**: `gradle:8.10.2-jdk17` (for building the application)
-- **Runtime**: `eclipse-temurin:21-jre-jammy` (JRE only, smaller size)
+### Direct Docker Build
 
-### Image Size
-The multi-stage build produces a minimal runtime image containing only:
-- JRE 21
-- Application binaries
-- Application dependencies
+**For Docker Hub:**
+```bash
+docker build -t your-username/delerium-paste-server:1.0.0 .
+docker tag your-username/delerium-paste-server:1.0.0 your-username/delerium-paste-server:latest
+docker login
+docker push your-username/delerium-paste-server:1.0.0
+docker push your-username/delerium-paste-server:latest
+```
 
-### Security Considerations
-
-1. **Pepper management**: 
-   - **Auto-generation**: If `DELETION_TOKEN_PEPPER` is not set, the application automatically generates a cryptographically secure random pepper (32 bytes)
-   - **Production best practice**: Set `DELETION_TOKEN_PEPPER` explicitly for consistency across restarts
-     - If the pepper changes between restarts, deletion tokens created before restart will be invalid
-     - Generate a secure value: `openssl rand -hex 32`
-   - **Security**: The auto-generated pepper is cryptographically secure (uses `SecureRandom`)
-2. **Volume permissions**: Ensure the `/data` volume has appropriate permissions
-3. **Network security**: Consider using a reverse proxy (nginx, traefik) in front of the container
-4. **Secrets management**: Use Docker secrets or environment variable management tools in production
-
-## Troubleshooting
-
-### Container won't start
-- Check logs: `docker logs <container-id>`
-- Verify database path is writable: `docker exec <container-id> ls -la /data`
-- Ensure `DELETION_TOKEN_PEPPER` is set
-
-### Database issues
-- Ensure `/data` volume is mounted and writable
-- Check file permissions on the host directory
-- Verify SQLite is working: `docker exec <container-id> sqlite3 /data/pastes.db ".tables"`
-
-### Build failures
-- Ensure Docker has enough resources (memory, disk space)
-- Check network connectivity for downloading dependencies
-- Review build logs for specific errors
-
-## Best Practices
-
-1. **Versioning**: Use semantic versioning (e.g., `v1.0.0`) for releases
-2. **Tagging**: Always tag releases, use `latest` for the current stable version
-3. **Security**: Regularly update base images and dependencies
-4. **Testing**: Test images locally before pushing to registries
-5. **Documentation**: Keep this guide and README updated with usage examples
+**For GHCR:**
+```bash
+docker build -t ghcr.io/your-username/delerium-paste-server:1.0.0 .
+docker tag ghcr.io/your-username/delerium-paste-server:1.0.0 ghcr.io/your-username/delerium-paste-server:latest
+echo $GITHUB_TOKEN | docker login ghcr.io -u your-username --password-stdin
+docker push ghcr.io/your-username/delerium-paste-server:1.0.0
+docker push ghcr.io/your-username/delerium-paste-server:latest
+```
 
 ## CI/CD Workflow Details
 
 The GitHub Actions workflow (`.github/workflows/docker-publish.yml`) automatically:
+
 - **Builds images** on pushes to `main` and version tags (format: `v*`)
 - **Creates multiple tags** for semantic versioning (e.g., `1.0.0`, `1.0`, `1`, `latest`)
 - **Uses build cache** for faster builds (GitHub Actions cache)
@@ -272,9 +161,51 @@ To modify the workflow:
 3. Update secrets if switching registries
 4. To disable a registry, comment out or remove the relevant steps
 
+## Image Details
+
+### Base Images
+
+- **Builder**: `gradle:8.10.2-jdk17` (for building the application)
+- **Runtime**: `eclipse-temurin:21-jre-jammy` (JRE only, smaller size)
+
+### Image Size
+
+The multi-stage build produces a minimal runtime image containing only:
+- JRE 21
+- Application binaries
+- Application dependencies
+
+### Security Considerations
+
+1. **Pepper management**: 
+   - **Auto-generation**: If `DELETION_TOKEN_PEPPER` is not set, the application automatically generates a cryptographically secure random pepper (32 bytes)
+   - **Production best practice**: Set `DELETION_TOKEN_PEPPER` explicitly for consistency across restarts
+     - If the pepper changes between restarts, deletion tokens created before the restart will be invalid
+     - Generate a secure value: `openssl rand -hex 32`
+2. **Volume permissions**: Ensure the `/data` volume has appropriate permissions
+3. **Network security**: Consider using a reverse proxy (nginx, traefik) in front of the container
+4. **Secrets management**: Use Docker secrets or environment variable management tools in production
+
+## Troubleshooting
+
+### Container won't start
+- Check logs: `docker logs <container-id>`
+- Verify database path is writable: `docker exec <container-id> ls -la /data`
+- Ensure `DELETION_TOKEN_PEPPER` is set (or allow auto-generation)
+
+### Database issues
+- Ensure `/data` volume is mounted and writable
+- Check file permissions on the host directory
+- Verify SQLite is working: `docker exec <container-id> sqlite3 /data/pastes.db ".tables"`
+
+### Build failures
+- Ensure Docker has enough resources (memory, disk space)
+- Check network connectivity for downloading dependencies
+- Review build logs for specific errors
+
 ## Quick Reference
 
-### Automated Publishing (Recommended)
+### Automated Publishing
 
 **GHCR (Zero Setup):**
 ```bash
@@ -315,3 +246,11 @@ docker run -d -p 8080:8080 -v ./data:/data -e DELETION_TOKEN_PEPPER=your-secret 
 docker pull your-username/delerium-paste-server:latest
 docker run -d -p 8080:8080 -v ./data:/data -e DELETION_TOKEN_PEPPER=your-secret your-username/delerium-paste-server:latest
 ```
+
+## Best Practices
+
+1. **Versioning**: Use semantic versioning (e.g., `v1.0.0`) for releases
+2. **Tagging**: Always tag releases, use `latest` for the current stable version
+3. **Security**: Regularly update base images and dependencies
+4. **Testing**: Test images locally before pushing to registries
+5. **Documentation**: Keep this guide and README updated with usage examples

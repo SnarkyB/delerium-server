@@ -27,6 +27,12 @@ import io.ktor.server.plugins.cors.routing.CORS
 import io.ktor.server.routing.routing
 import org.jetbrains.exposed.sql.Database
 import java.security.SecureRandom
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import java.util.concurrent.TimeUnit
 
 /**
  * Application configuration data class
@@ -96,8 +102,10 @@ fun Application.module() {
         generatedPepper
     }
     
+    val envDbPath = System.getenv("DB_PATH")
+    val dbPath = envDbPath ?: cfg.property("storage.dbPath").getString()
     val appCfg = AppConfig(
-        dbPath = cfg.property("storage.dbPath").getString(),
+        dbPath = dbPath,
         deletionPepper = deletionPepper,
         powEnabled = cfg.propertyOrNull("storage.pow.enabled")?.getString()?.toBoolean() ?: true,
         powDifficulty = cfg.property("storage.pow.difficulty").getString().toInt(),
@@ -138,6 +146,23 @@ fun Application.module() {
     val repo = PasteRepo(db, appCfg.deletionPepper)
     val rl = if (appCfg.rlEnabled) TokenBucket(appCfg.rlCapacity, appCfg.rlRefill) else null
     val pow = if (appCfg.powEnabled) PowService(appCfg.powDifficulty, appCfg.powTtl) else null
+
+    // Start background task to clean up expired pastes periodically
+    val cleanupScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+    cleanupScope.launch {
+        while (true) {
+            try {
+                val deleted = repo.deleteExpired()
+                if (deleted > 0) {
+                    environment.log.info("🧹 Cleaned up $deleted expired paste(s)")
+                }
+            } catch (e: Exception) {
+                environment.log.error("Error during expired paste cleanup", e)
+            } finally {
+                delay(TimeUnit.HOURS.toMillis(1)) // Run cleanup every hour
+            }
+        }
+    }
 
     routing {
         apiRoutes(repo, rl, pow, appCfg)

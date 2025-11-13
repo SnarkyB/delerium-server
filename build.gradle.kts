@@ -27,6 +27,11 @@ dependencies {
     implementation("org.xerial:sqlite-jdbc:3.49.1.0")
 
     implementation("org.bouncycastle:bcprov-jdk18on:1.80")
+
+    // Test dependencies
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.jetbrains.kotlin:kotlin-test-junit")
+    testImplementation("io.ktor:ktor-server-test-host-jvm:$ktor")
 }
 application { mainClass.set("io.ktor.server.netty.EngineMain") }
 kotlin { jvmToolchain(21) }
