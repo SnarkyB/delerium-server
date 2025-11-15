@@ -105,7 +105,7 @@ fun Routing.apiRoutes(repo: PasteRepo, rl: TokenBucket?, pow: PowService?, cfg: 
             val deleteToken = Ids.randomId(24)
             try {
                 repo.create(id, body.ct, body.iv, body.meta, deleteToken)
-                call.respond(CreatePasteResponse(id, deleteToken))
+                call.respond(HttpStatusCode.Created, CreatePasteResponse(id, deleteToken))
             } catch (_: Exception) {
                 call.respond(HttpStatusCode.InternalServerError, ErrorResponse("db_error"))
             }

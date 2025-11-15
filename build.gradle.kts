@@ -28,6 +28,9 @@ dependencies {
 
     implementation("org.bouncycastle:bcprov-jdk18on:1.80")
 
+    // Jackson Kotlin module for test deserialization
+    testImplementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.18.1")
+
     // Test dependencies
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit")
