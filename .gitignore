@@ -1,0 +1,14 @@
+# Gradle build outputs
+build/
+out/
+.gradle/
+
+# Data directory
+data/
+
+# IDE files
+*.iml
+.idea/
+
+# Gradle wrapper jar (these are typically committed, so not ignoring them)
+# gradle/wrapper/
