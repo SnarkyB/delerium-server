@@ -325,7 +325,101 @@ cp /data/pastes.db /backup/pastes-$(date +%Y%m%d).db
 sqlite3 /data/pastes.db ".backup /backup/pastes-$(date +%Y%m%d).db"
 ```
 
-## Development
+## Local Development
+
+### Quick Start (Local)
+
+#### Option 1: Using the Run Script (Easiest)
+
+```bash
+./run-local.sh
+```
+
+This script will:
+- Create the `data/` directory if needed
+- Set the database path to `./data/pastes.db`
+- Build the distribution if needed
+- Start the server on port 8080
+
+#### Option 2: Manual Setup
+
+```bash
+# 1. Build the project
+./gradlew build
+
+# 2. Create distribution
+./gradlew installDist
+
+# 3. Create data directory
+mkdir -p data
+
+# 4. Set database path and run
+export DB_PATH="jdbc:sqlite:$(pwd)/data/pastes.db"
+./build/install/delerium-paste-server/bin/delerium-paste-server
+```
+
+#### Option 3: Using Gradle Run
+
+```bash
+# Set database path
+export DB_PATH="jdbc:sqlite:$(pwd)/data/pastes.db"
+
+# Run directly
+./gradlew run
+```
+
+### Local Configuration
+
+For local development, configure environment variables:
+
+```bash
+# Database location (local SQLite file)
+export DB_PATH="jdbc:sqlite:./data/pastes.db"
+
+# Optional: Set pepper (auto-generated if not set)
+export DELETION_TOKEN_PEPPER="dev-pepper-$(openssl rand -hex 16)"
+```
+
+### Verifying Local Deployment
+
+```bash
+# Check if server is running
+curl http://localhost:8080/api/pow
+
+# Expected response:
+# {"challenge":"...","difficulty":10,"expiresAt":...}
+
+# Check database
+sqlite3 data/pastes.db ".tables"
+# Should show: pastes
+
+# Test API endpoints
+curl -X POST http://localhost:8080/api/pastes \
+  -H "Content-Type: application/json" \
+  -d '{"ct":"...","iv":"...","meta":{"expireTs":9999999999}}'
+```
+
+### Stopping the Server
+
+If running in foreground:
+- Press `Ctrl+C`
+
+If running in background:
+```bash
+# Find process
+lsof -ti:8080
+
+# Kill process
+kill $(lsof -ti:8080)
+```
+
+### Local Development Tips
+
+1. **Auto-reload**: Use `./gradlew run` for development with hot reload
+2. **Logs**: Check console output for server logs
+3. **Database**: The SQLite database is created automatically on first run
+4. **Testing**: Run tests with `./gradlew test`
+5. **Port conflicts**: If port 8080 is in use, modify `application.conf`
 
 ### Running Tests
 
